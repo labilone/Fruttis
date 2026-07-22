@@ -5,26 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Fruttis</title>
     <style>
-        body {
+        html, body {
             margin: 0;
             padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
             background: linear-gradient(135deg, #e0f7fa, #81d4fa);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            height: 100vh;
+            justify-content: space-evenly;
             box-sizing: border-box;
-            overflow: hidden;
             user-select: none;
             touch-action: none;
         }
 
         h1 {
             color: #006064;
-            margin: 4px 0;
-            font-size: 1.4rem;
+            margin: 0;
+            font-size: 1.3rem;
             text-shadow: 1px 1px 2px rgba(255,255,255,0.7);
             text-align: center;
         }
@@ -32,11 +33,11 @@
         #top-ui {
             display: flex;
             gap: 10px;
-            margin-bottom: 4px;
+            margin: 0;
         }
 
         .ui-box {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: #004d40;
             font-weight: bold;
             background: rgba(255, 255, 255, 0.85);
@@ -45,18 +46,18 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             border: 2px solid #fff;
             text-align: center;
-            min-width: 80px;
+            min-width: 75px;
         }
 
         .ui-box span {
             display: block;
-            font-size: 1rem;
+            font-size: 0.95rem;
             margin-top: 1px;
             color: #00796b;
         }
 
         #next-fruit-emoji {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
         }
 
         #game-container {
@@ -66,8 +67,10 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             overflow: hidden;
             border: 3px solid #ffffff;
-            height: 72vh;
+            width: 90vw;
+            max-width: 360px;
             aspect-ratio: 400 / 600;
+            max-height: 65vh;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -99,13 +102,13 @@
 
         #game-over h2 {
             color: #ff5252;
-            font-size: 2rem;
+            font-size: 1.8rem;
             margin-bottom: 8px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
         }
 
         #game-over p {
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             margin-bottom: 15px;
         }
 
@@ -114,7 +117,7 @@
             color: white;
             border: none;
             padding: 8px 20px;
-            font-size: 1rem;
+            font-size: 0.95rem;
             border-radius: 50px;
             cursor: pointer;
             box-shadow: 0 6px 20px rgba(197, 17, 98, 0.5);
