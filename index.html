@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fruttis</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #e0f7fa, #81d4fa);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        h1 {
+            color: #006064;
+            margin: 15px 0 8px 0;
+            font-size: 2.2rem;
+            text-shadow: 1px 1px 2px rgba(255,255,255,0.7);
+            text-align: center;
+        }
+
+        #score-board {
+            font-size: 1.3rem;
+            color: #004d40;
+            margin-bottom: 15px;
+            font-weight: bold;
+            background: rgba(255, 255, 255, 0.85);
+            padding: 6px 22px;
+            border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: 2px solid #fff;
+        }
+
+        #game-container {
+            position: relative;
+            background: #ffffff;
+            border-radius: 25px;
+            box-shadow: 0 15px 45px rgba(0,0,0,0.2);
+            overflow: hidden;
+            border: 6px solid #ffffff;
+        }
+
+        canvas {
+            display: block;
+            background: #e0f2f1;
+            cursor: crosshair;
+        }
+
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            display: none;
+            color: white;
+        }
+
+        #game-over h2 {
+            color: #ff5252;
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        #game-over p {
+            font-size: 1.3rem;
+            margin-bottom: 25px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #ff4081, #c51162);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.4rem;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(197, 17, 98, 0.5);
+            transition: transform 0.1s, box-shadow 0.2s;
+            font-weight: bold;
+        }
+
+        .btn:hover {
+            transform: scale(1.07);
+            box-shadow: 0 10px 30px rgba(197, 17, 98, 0.7);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🍉 Fruttis 🍓</h1>
+    <div id="score-board">Poäng: <span id="score">0</span></div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        <div id="game-over">
+            <h2>Det blev fullt!</h2>
+            <p>Frukterna nådde toppen av korgen.</p>
+            <button class="btn" onclick="resetGame()">Försök igen</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+        const gameOverEl = document.getElementById('game-over');
+
+        let score = 0;
+        let gameOver = false;
+        let dropCooldown = false;
+
+        const DROP_LINE_Y = 90;
+
+        const FRUITS = [
+            { radius: 18, emoji: '🍒', points: 2, bg: '#ffcccc' },
+            { radius: 26, emoji: '🍓', points: 4, bg: '#ff9999' },
+            { radius: 35, emoji: '🍇', points: 8, bg: '#d1b3ff' },
+            { radius: 46, emoji: '🍊', points: 16, bg: '#ffbb99' },
+            { radius: 58, emoji: '🍎', points: 32, bg: '#99ffbb' },
+            { radius: 72, emoji: '🍍', points: 64, bg: '#ffff99' },
+            { radius: 88, emoji: '🍉', points: 128, bg: '#99ffcc' }
+        ];
+
+        let fruits = [];
+        let currentFruitIndex = 0;
+        let dropX = canvas.width / 2;
+
+        class Fruit {
+            constructor(x, y, level) {
+                this.x = x;
+                this.y = y;
+                this.level = level;
+                this.radius = FRUITS[level].radius;
+                this.vx = 0;
+                this.vy = 0;
+                this.isDropped = false;
+                this.markedForDeletion = false;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+                ctx.shadowBlur = 5;
+                ctx.shadowOffsetY = 3;
+
+                ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = FRUITS[this.level].bg;
+                ctx.fill();
+                
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = '#ffffff';
+                ctx.stroke();
+                
+                ctx.shadowColor = 'transparent';
+
+                ctx.font = `${this.radius * 1.2}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#000';
+                ctx.fillText(FRUITS[this.level].emoji, 0, 0);
+                
+                ctx.restore();
+            }
+
+            update() {
+                if (!this.isDropped) return;
+
+                this.vy += 0.35; 
+                this.y += this.vy;
+                this.x += this.vx;
+
+                if (this.x - this.radius < 0) {
+                    this.x = this.radius;
+                    this.vx *= -0.4;
+                }
+                if (this.x + this.radius > canvas.width) {
+                    this.x = canvas.width - this.radius;
+                    this.vx *= -0.4;
+                }
+
+                if (this.y + this.radius > canvas.height) {
+                    this.y = canvas.height - this.radius;
+                    this.vy *= -0.25; 
+                    this.vx *= 0.75;  
+                }
+            }
+        }
+
+        function spawnNewFruit() {
+            currentFruitIndex = Math.floor(Math.random() * 3); 
+        }
+
+        function handleInputMove(clientX) {
+            if (gameOver || dropCooldown) return;
+            const rect = canvas.getBoundingClientRect();
+            dropX = clientX - rect.left;
+            
+            const radius = FRUITS[currentFruitIndex].radius;
+            if (dropX < radius) dropX = radius;
+            if (dropX > canvas.width - radius) dropX = canvas.width - radius;
+        }
+
+        canvas.addEventListener('mousemove', (e) => handleInputMove(e.clientX));
+        canvas.addEventListener('touchmove', (e) => handleInputMove(e.touches[0].clientX));
+
+        function dropFruit() {
+            if (gameOver || dropCooldown) return;
+
+            const newFruit = new Fruit(dropX, DROP_LINE_Y, currentFruitIndex);
+            newFruit.isDropped = true;
+            fruits.push(newFruit);
+
+            dropCooldown = true;
+            setTimeout(() => {
+                dropCooldown = false;
+                spawnNewFruit();
+            }, 350);
+        }
+
+        canvas.addEventListener('click', dropFruit);
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            dropFruit();
+        });
+
+        function checkCollisions() {
+            for (let i = 0; i < fruits.length; i++) {
+                for (let j = i + 1; j < fruits.length; j++) {
+                    let f1 = fruits[i];
+                    let f2 = fruits[j];
+
+                    if (f1.markedForDeletion || f2.markedForDeletion) continue;
+
+                    let dx = f2.x - f1.x;
+                    let dy = f2.y - f1.y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+                    let minDist = f1.radius + f2.radius;
+
+                    if (dist < minDist) {
+                        if (f1.level === f2.level) {
+                            f1.markedForDeletion = true;
+                            f2.markedForDeletion = true;
+
+                            let newX = (f1.x + f2.x) / 2;
+                            let newY = (f1.y + f2.y) / 2;
+
+                            if (f1.level >= FRUITS.length - 1) {
+                                score += 300; 
+                                scoreEl.innerText = score;
+                            } else {
+                                let nextLevel = f1.level + 1;
+                                score += FRUITS[nextLevel].points;
+                                scoreEl.innerText = score;
+
+                                let mergedFruit = new Fruit(newX, newY, nextLevel);
+                                mergedFruit.isDropped = true;
+                                mergedFruit.vy = -4.5; 
+                                fruits.push(mergedFruit);
+                            }
+                        } else {
+                            let overlap = minDist - dist;
+                            let angle = Math.atan2(dy, dx);
+                            let ax = Math.cos(angle) * overlap * 0.6;
+                            let ay = Math.sin(angle) * overlap * 0.6;
+
+                            f1.x -= ax;
+                            f1.y -= ay;
+                            f2.x += ax;
+                            f2.y += ay;
+                            
+                            f1.vx *= 0.9;
+                            f1.vy *= 0.9;
+                            f2.vx *= 0.9;
+                            f2.vy *= 0.9;
+                        }
+                    }
+                }
+            }
+            fruits = fruits.filter(f => !f.markedForDeletion);
+        }
+
+        function checkGameOver() {
+            for (let f of fruits) {
+                if (f.isDropped && f.vy <= 0.1 && f.y - f.radius < DROP_LINE_Y + 5) {
+                    gameOver = true;
+                    gameOverEl.style.display = 'flex';
+                }
+            }
+        }
+
+        function resetGame() {
+            fruits = [];
+            score = 0;
+            scoreEl.innerText = score;
+            gameOver = false;
+            gameOverEl.style.display = 'none';
+            spawnNewFruit();
+        }
+
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.strokeStyle = '#ff7043';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 6]);
+            ctx.beginPath();
+            ctx.moveTo(0, DROP_LINE_Y);
+            ctx.lineTo(canvas.width, DROP_LINE_Y);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            for (let fruit of fruits) {
+                fruit.update();
+                fruit.draw();
+            }
+
+            checkCollisions();
+
+            if (!gameOver) {
+                let radius = FRUITS[currentFruitIndex].radius;
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(dropX, DROP_LINE_Y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = FRUITS[currentFruitIndex].bg;
+                ctx.globalAlpha = 0.6;
+                ctx.fill();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#fff';
+                ctx.stroke();
+
+                ctx.font = `${radius * 1.2}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.globalAlpha = 1.0;
+                ctx.fillStyle = '#000';
+                ctx.fillText(FRUITS[currentFruitIndex].emoji, dropX, DROP_LINE_Y);
+                ctx.restore();
+
+                checkGameOver();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        spawnNewFruit();
+        gameLoop();
+    </script>
+</body>
+</html>
