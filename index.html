@@ -21,7 +21,7 @@
 
         h1 {
             color: #006064;
-            margin: 15px 0 8px 0;
+            margin: 10px 0 5px 0;
             font-size: 2.2rem;
             text-shadow: 1px 1px 2px rgba(255,255,255,0.7);
             text-align: center;
@@ -30,7 +30,7 @@
         #score-board {
             font-size: 1.3rem;
             color: #004d40;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             font-weight: bold;
             background: rgba(255, 255, 255, 0.85);
             padding: 6px 22px;
@@ -127,13 +127,15 @@
         const DROP_LINE_Y = 90;
 
         const FRUITS = [
-            { radius: 18, emoji: '🍒', points: 2, bg: '#ffcccc' },
-            { radius: 26, emoji: '🍓', points: 4, bg: '#ff9999' },
-            { radius: 35, emoji: '🍇', points: 8, bg: '#d1b3ff' },
-            { radius: 46, emoji: '🍊', points: 16, bg: '#ffbb99' },
-            { radius: 58, emoji: '🍎', points: 32, bg: '#99ffbb' },
-            { radius: 72, emoji: '🍍', points: 64, bg: '#ffff99' },
-            { radius: 88, emoji: '🍉', points: 128, bg: '#99ffcc' }
+            { radius: 14, emoji: '🍒', points: 2, bg: '#ffcccc' },
+            { radius: 20, emoji: '🍓', points: 4, bg: '#ff9999' },
+            { radius: 27, emoji: '🍇', points: 8, bg: '#d1b3ff' },
+            { radius: 34, emoji: '🍊', points: 16, bg: '#ffbb99' },
+            { radius: 42, emoji: '🍌', points: 24, bg: '#ffff99' },
+            { radius: 50, emoji: '🍎', points: 32, bg: '#99ffbb' },
+            { radius: 60, emoji: '🍑', points: 48, bg: '#ffcc99' },
+            { radius: 72, emoji: '🍍', points: 64, bg: '#ffe680' },
+            { radius: 86, emoji: '🍉', points: 128, bg: '#99ffcc' }
         ];
 
         let fruits = [];
@@ -171,7 +173,7 @@
                 
                 ctx.shadowColor = 'transparent';
 
-                ctx.font = `${this.radius * 1.2}px sans-serif`;
+                ctx.font = `${this.radius * 1.1}px sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillStyle = '#000';
@@ -205,7 +207,7 @@
         }
 
         function spawnNewFruit() {
-            currentFruitIndex = Math.floor(Math.random() * 3); 
+            currentFruitIndex = Math.floor(Math.random() * 5); 
         }
 
         function handleInputMove(clientX) {
@@ -242,6 +244,7 @@
         });
 
         function checkCollisions() {
+            // 1. Först hanterar vi all vanlig fysik och studsar mellan ALLA frukter
             for (let i = 0; i < fruits.length; i++) {
                 for (let j = i + 1; j < fruits.length; j++) {
                     let f1 = fruits[i];
@@ -255,45 +258,103 @@
                     let minDist = f1.radius + f2.radius;
 
                     if (dist < minDist) {
-                        if (f1.level === f2.level) {
-                            f1.markedForDeletion = true;
-                            f2.markedForDeletion = true;
+                        let overlap = minDist - dist;
+                        let angle = Math.atan2(dy, dx);
+                        let ax = Math.cos(angle) * overlap * 0.5;
+                        let ay = Math.sin(angle) * overlap * 0.5;
 
-                            let newX = (f1.x + f2.x) / 2;
-                            let newY = (f1.y + f2.y) / 2;
+                        f1.x -= ax;
+                        f1.y -= ay;
+                        f2.x += ax;
+                        f2.y += ay;
+                        
+                        f1.vx *= 0.85;
+                        f1.vy *= 0.85;
+                        f2.vx *= 0.85;
+                        f2.vy *= 0.85;
+                    }
+                }
+            }
 
-                            if (f1.level >= FRUITS.length - 1) {
-                                score += 300; 
-                                scoreEl.innerText = score;
-                            } else {
-                                let nextLevel = f1.level + 1;
-                                score += FRUITS[nextLevel].points;
-                                scoreEl.innerText = score;
+            // 2. Sedan kollar vi om det finns grupper på 3 frukter av samma nivå som nuddar varandra
+            let pairs = [];
+            for (let i = 0; i < fruits.length; i++) {
+                for (let j = i + 1; j < fruits.length; j++) {
+                    let f1 = fruits[i];
+                    let f2 = fruits[j];
+                    if (f1.markedForDeletion || f2.markedForDeletion) continue;
 
-                                let mergedFruit = new Fruit(newX, newY, nextLevel);
-                                mergedFruit.isDropped = true;
-                                mergedFruit.vy = -4.5; 
-                                fruits.push(mergedFruit);
-                            }
-                        } else {
-                            let overlap = minDist - dist;
-                            let angle = Math.atan2(dy, dx);
-                            let ax = Math.cos(angle) * overlap * 0.6;
-                            let ay = Math.sin(angle) * overlap * 0.6;
-
-                            f1.x -= ax;
-                            f1.y -= ay;
-                            f2.x += ax;
-                            f2.y += ay;
-                            
-                            f1.vx *= 0.9;
-                            f1.vy *= 0.9;
-                            f2.vx *= 0.9;
-                            f2.vy *= 0.9;
+                    if (f1.level === f2.level) {
+                        let dx = f2.x - f1.x;
+                        let dy = f2.y - f1.y;
+                        let dist = Math.sqrt(dx * dx + dy * dy);
+                        // Om de är nära nog att nudda varandra
+                        if (dist <= f1.radius + f2.radius + 2) {
+                            pairs.push([f1, f2]);
                         }
                     }
                 }
             }
+
+            // Bygg ihop grafer för att hitta klungor på 3 eller fler
+            let visited = new Set();
+            for (let fruit of fruits) {
+                if (fruit.markedForDeletion || visited.has(fruit)) continue;
+
+                let cluster = [];
+                let queue = [fruit];
+                visited.add(fruit);
+
+                while (queue.length > 0) {
+                    let curr = queue.shift();
+                    cluster.push(curr);
+
+                    for (let pair of pairs) {
+                        let neighbor = null;
+                        if (pair[0] === curr && !visited.has(pair[1]) && pair[1].level === curr.level) {
+                            neighbor = pair[1];
+                        } else if (pair[1] === curr && !visited.has(pair[0]) && pair[0].level === curr.level) {
+                            neighbor = pair[0];
+                        }
+
+                        if (neighbor) {
+                            visited.add(neighbor);
+                            queue.push(neighbor);
+                        }
+                    }
+                }
+
+                // Om klungan har 3 eller fler frukter - smält ihop dem!
+                if (cluster.length >= 3) {
+                    let f1 = cluster[0];
+                    let f2 = cluster[1];
+                    let f3 = cluster[2];
+
+                    f1.markedForDeletion = true;
+                    f2.markedForDeletion = true;
+                    f3.markedForDeletion = true;
+
+                    let newX = (f1.x + f2.x + f3.x) / 3;
+                    let newY = (f1.y + f2.y + f3.y) / 3;
+                    let lvlNum = f1.level;
+
+                    if (lvlNum >= FRUITS.length - 1) {
+                        score += 500; 
+                        scoreEl.innerText = score;
+                    } else {
+                        let nextLevel = lvlNum + 1;
+                        score += FRUITS[nextLevel].points * 1.5;
+                        scoreEl.innerText = Math.floor(score);
+
+                        let mergedFruit = new Fruit(newX, newY, nextLevel);
+                        mergedFruit.isDropped = true;
+                        mergedFruit.vy = -5; 
+                        fruits.push(mergedFruit);
+                    }
+                    break; // Hantera en sammanslagning per frame
+                }
+            }
+
             fruits = fruits.filter(f => !f.markedForDeletion);
         }
 
@@ -346,7 +407,7 @@
                 ctx.strokeStyle = '#fff';
                 ctx.stroke();
 
-                ctx.font = `${radius * 1.2}px sans-serif`;
+                ctx.font = `${radius * 1.1}px sans-serif`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.globalAlpha = 1.0;
